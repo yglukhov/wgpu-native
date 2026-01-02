@@ -32,9 +32,13 @@ use wgc::{
 use crate::conv::map_primitive_state;
 
 pub mod conv;
+pub mod hal_interop;
 pub mod logging;
 pub mod unimplemented;
 pub mod utils;
+
+#[cfg(all(any(target_os = "ios", target_os = "macos", target_os = "visionos"), feature = "metal"))]
+pub mod metal_interop;
 
 pub mod native {
     #![allow(non_upper_case_globals)]
@@ -163,9 +167,9 @@ impl Drop for WGPUComputePipelineImpl {
     }
 }
 
-struct QueueId {
-    context: Arc<Context>,
-    id: id::QueueId,
+pub(crate) struct QueueId {
+    pub(crate) context: Arc<Context>,
+    pub(crate) id: id::QueueId,
 }
 impl Drop for QueueId {
     fn drop(&mut self) {
@@ -348,13 +352,13 @@ impl Drop for WGPUSurfaceImpl {
 }
 
 #[derive(Copy, Clone)]
-struct TextureData {
-    usage: native::WGPUTextureUsage,
-    dimension: native::WGPUTextureDimension,
-    size: native::WGPUExtent3D,
-    format: native::WGPUTextureFormat,
-    mip_level_count: u32,
-    sample_count: u32,
+pub(crate) struct TextureData {
+    pub(crate) usage: native::WGPUTextureUsage,
+    pub(crate) dimension: native::WGPUTextureDimension,
+    pub(crate) size: native::WGPUExtent3D,
+    pub(crate) format: native::WGPUTextureFormat,
+    pub(crate) mip_level_count: u32,
+    pub(crate) sample_count: u32,
 }
 
 pub struct WGPUTextureImpl {
@@ -408,8 +412,8 @@ struct DeviceCallback<T> {
 }
 unsafe impl<T> Send for DeviceCallback<T> {}
 
-type UncapturedErrorCallback = DeviceCallback<native::WGPUUncapturedErrorCallback>;
-type DeviceLostCallback = DeviceCallback<native::WGPUDeviceLostCallback>;
+pub(crate) type UncapturedErrorCallback = DeviceCallback<native::WGPUUncapturedErrorCallback>;
+pub(crate) type DeviceLostCallback = DeviceCallback<native::WGPUDeviceLostCallback>;
 
 unsafe extern "C" fn default_uncaptured_error_handler(
     _device: *const native::WGPUDevice,
@@ -422,7 +426,7 @@ unsafe extern "C" fn default_uncaptured_error_handler(
     log::warn!("Handling wgpu uncaptured errors as fatal by default");
     panic!("wgpu uncaptured error:\n{message}\n");
 }
-const DEFAULT_UNCAPTURED_ERROR_HANDLER: UncapturedErrorCallback = UncapturedErrorCallback {
+pub(crate) const DEFAULT_UNCAPTURED_ERROR_HANDLER: UncapturedErrorCallback = UncapturedErrorCallback {
     callback: Some(default_uncaptured_error_handler),
     userdata: utils::Userdata::NULL,
 };
@@ -438,7 +442,7 @@ unsafe extern "C" fn default_device_lost_handler(
     log::warn!("Handling wgpu device lost errors as fatal by default");
     panic!("wgpu device lost error:\n{message}\n");
 }
-const DEFAULT_DEVICE_LOST_HANDLER: DeviceLostCallback = DeviceLostCallback {
+pub(crate) const DEFAULT_DEVICE_LOST_HANDLER: DeviceLostCallback = DeviceLostCallback {
     callback: Some(default_device_lost_handler),
     userdata: utils::Userdata::NULL,
 };
@@ -485,14 +489,14 @@ pub enum ErrorFilter {
     Validation,
 }
 
-type ErrorSink = Arc<Mutex<ErrorSinkRaw>>;
+pub(crate) type ErrorSink = Arc<Mutex<ErrorSinkRaw>>;
 
 struct ErrorScope {
     error: Option<crate::Error>,
     filter: crate::ErrorFilter,
 }
 
-struct ErrorSinkRaw {
+pub(crate) struct ErrorSinkRaw {
     scopes: Vec<ErrorScope>,
     uncaptured_handler: UncapturedErrorCallback,
     device_lost_handler: DeviceLostCallback,
@@ -500,7 +504,7 @@ struct ErrorSinkRaw {
 }
 
 impl ErrorSinkRaw {
-    fn new(device_lost_handler: DeviceLostCallback, device: Weak<WGPUDeviceImpl>) -> ErrorSinkRaw {
+    pub(crate) fn new(device_lost_handler: DeviceLostCallback, device: Weak<WGPUDeviceImpl>) -> ErrorSinkRaw {
         ErrorSinkRaw {
             scopes: Vec::new(),
             uncaptured_handler: DEFAULT_UNCAPTURED_ERROR_HANDLER,

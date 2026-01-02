@@ -37,7 +37,7 @@ package = "naga"
 version = "27.0.0"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["staticlib"]
 
 [features]
 default = ["wgsl", "spirv", "glsl", "dx12", "metal", "vulkan", "gles"]
@@ -129,6 +129,17 @@ thiserror = "2"
 parking_lot = "0.12"
 smallvec = "1"
 bitflags = "2"
+ash = "0.38"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.14"
+
+# Metal interop dependencies (macOS/iOS/visionOS)
+[target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "visionos"))'.dependencies]
+metal = "0.32"
 
 [build-dependencies]
 bindgen = "0.72"
+
+[patch.crates-io]
+objc = { path = "patches/objc" }
